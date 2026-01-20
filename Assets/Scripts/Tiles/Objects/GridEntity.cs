@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class DynamicObject : BaseObject, IDynamicObject
+public class GridEntity : BaseObject, IGridEntity
 {
     protected ColorSet colorSet;
     protected Tile cell; 
@@ -27,15 +27,20 @@ public class DynamicObject : BaseObject, IDynamicObject
             cell.UpdateTexture(cellTexture);
         
     }
-    protected bool IsColorMatch(BaseObject obj)
+    public ColorSet GetColorSet()
     {
-        if (obj is DynamicObject dynObj)
+        return colorSet;
+    }
+
+    public bool IsColorMatch(BaseObject obj)
+    {
+        if (obj is GridEntity dynObj)
         {
             bool match = dynObj.colorSet == this.colorSet;
             Debug.Log($"Comparing ColorSet: {this.colorSet} with {dynObj.colorSet} - Match: {match}");
             return match;
         }
-        Debug.Log("Object is not a DynamicObject");
+        Debug.Log("Object is not a GridEntity");
         return false;
     }
 }

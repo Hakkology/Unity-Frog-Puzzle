@@ -109,11 +109,11 @@ public class TileManager : MonoBehaviour, ISingleton
         Tile tile = GetTileAt(x, y);
         if (tile != null)
         {
-            DirectionObject directionObject = tile.GetTopmostObject() as DirectionObject;
-            if (directionObject != null)
+            DirectionalEntity directionalEntity = tile.GetTopmostObject() as DirectionalEntity;
+            if (directionalEntity != null)
             {
-                directionObject.facingDirection = direction;
-                directionObject.RotateObjectToFaceDirection();
+                directionalEntity.facingDirection = direction;
+                directionalEntity.RotateObjectToFaceDirection();
             }
         }
     }

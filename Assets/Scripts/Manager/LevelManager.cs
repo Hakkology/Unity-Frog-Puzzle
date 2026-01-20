@@ -67,6 +67,7 @@ public class LevelManager : MonoBehaviour, ISingleton
         }
 
         ClearExistingLevel();
+        SingletonManager.GetSingleton<GameManager>()?.ClearFrogs();
 
         for (int row = 0; row < 6; row++)
         {
@@ -122,33 +123,33 @@ public class LevelManager : MonoBehaviour, ISingleton
 
                 // Setup the object's properties based on objConfig
                 BaseObject baseObject = objInstance.GetComponent<BaseObject>();
-                if (baseObject != null)
-                {
-                    tile.AddTileObject(baseObject);
+                    if (baseObject != null)
+                    {
+                        tile.AddTileObject(baseObject);
 
-                    if (baseObject is DirectionObject directionObject)
-                    {
-                        directionObject.facingDirection = objConfig.direction;
-                        directionObject.RotateObjectToFaceDirection();
-                    }
+                        if (baseObject is DirectionalEntity directionalEntity)
+                        {
+                            directionalEntity.facingDirection = objConfig.direction;
+                            directionalEntity.RotateObjectToFaceDirection();
+                        }
 
-                    // Handle Texture Change based on object type and color
-                    if (baseObject is Frog)
-                    {
-                        var textures = textureManager.GetFrogTexture(objConfig.color);
-                        ((DynamicObject)baseObject).HandleTextureChange(textures.frogTexture, textures.cellTexture, objConfig.color);
+                        // Handle Texture Change based on object type and color
+                        if (baseObject is Frog)
+                        {
+                            var textures = textureManager.GetFrogTexture(objConfig.color);
+                            ((GridEntity)baseObject).HandleTextureChange(textures.frogTexture, textures.cellTexture, objConfig.color);
+                        }
+                        else if (baseObject is Grape)
+                        {
+                            var textures = textureManager.GetGrapeTexture(objConfig.color);
+                            ((GridEntity)baseObject).HandleTextureChange(textures.grapeTexture, textures.cellTexture, objConfig.color);
+                        }
+                        else if (baseObject is Arrow)
+                        {
+                            var textures = textureManager.GetArrowTexture(objConfig.color);
+                            ((GridEntity)baseObject).HandleTextureChange(textures.arrowTexture, textures.cellTexture, objConfig.color);
+                        }
                     }
-                    else if (baseObject is Grape)
-                    {
-                        var textures = textureManager.GetGrapeTexture(objConfig.color);
-                        ((DynamicObject)baseObject).HandleTextureChange(textures.grapeTexture, textures.cellTexture, objConfig.color);
-                    }
-                    else if (baseObject is Arrow)
-                    {
-                        var textures = textureManager.GetArrowTexture(objConfig.color);
-                        ((DynamicObject)baseObject).HandleTextureChange(textures.arrowTexture, textures.cellTexture, objConfig.color);
-                    }
-                }
             }
             else
             {

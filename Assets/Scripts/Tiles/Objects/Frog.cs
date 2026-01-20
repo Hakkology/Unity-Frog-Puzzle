@@ -3,9 +3,9 @@ using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// Represents a frog on a tile.
+/// Represents a Frog entity on the grid, capable of extending its tongue to interact with other objects.
 /// </summary>
-public class Frog : DirectionObject
+public class Frog : DirectionalEntity
 {
     public Transform tongueBone;
     public TongueController tongue;
@@ -23,34 +23,89 @@ public class Frog : DirectionObject
     {
         var textures = textureManager.GetRandomFrogTexture();
         HandleTextureChange(textures.frogTexture, textures.cellTexture, textures.color);
+        
+        // Register with GameManager
+        SingletonManager.GetSingleton<GameManager>()?.RegisterFrog(this);
     }
+    
+    private void OnDestroy()
+    {
+        SingletonManager.GetSingleton<GameManager>()?.UnregisterFrog(this);
+    }
+
+    private List<Vector2Int> currentTravelPath;
 
     public override void Interact()
     {
-        if (!isAnimating)
+        GameManager gameManager = SingletonManager.GetSingleton<GameManager>();
+        
+        if (!isAnimating && gameManager != null && gameManager.CanMove())
         {
             isAnimating = true;
-            List<Vector2Int> travelCoordinates = GetPath();
-            if (travelCoordinates.Count > 0)
+            currentTravelPath = GetPath();
+            
+            if (currentTravelPath.Count > 0)
             {
                 Debug.Log("Starting tongue animation.");
-                Vector3 targetPosition = tileManager.GetTileAt(travelCoordinates[travelCoordinates.Count - 1].x, travelCoordinates[travelCoordinates.Count - 1].y).transform.position;
-                tongue.StartExtendTongue(travelCoordinates);
-
-                // Yoyo animasyonunu burada başlat
-                var rotateSequence = tongueBone.DOLocalRotate(new Vector3(0, 0, -100), 0.5f).SetLoops(2, LoopType.Yoyo);
-                tongue.OnTongueRetracted += () => 
-                {
-                    rotateSequence.Kill(true); // Event geldiğinde yoyo animasyonunu sonlandır
-                    tongueBone.localRotation = Quaternion.identity; // Orjinal rotasyona dön
-                    isAnimating = false;
-                };
+                gameManager.ConsumeMove();
+                
+                tongue.StartExtendTongue(currentTravelPath);
+                
+                // Subscribe to retraction
+                tongue.OnTongueRetracted += OnTongueRetractedHandler;
             }
             else
             {
-                Debug.Log("No valid path found, animation not started.");
-                isAnimating = false;
+                Debug.Log("Invalid move. Shaking.");
+                transform.DOShakePosition(0.5f, 0.5f, 10, 90f).OnComplete(() => isAnimating = false);
             }
+        }
+    }
+
+    private void OnTongueRetractedHandler()
+    {
+        tongue.OnTongueRetracted -= OnTongueRetractedHandler; // Unsubscribe
+        
+        // Handle outcome
+        HandleEating(currentTravelPath);
+        
+        isAnimating = false;
+        SingletonManager.GetSingleton<GameManager>()?.CheckWinCondition();
+        currentTravelPath = null;
+    }
+
+    private void HandleEating(List<Vector2Int> path)
+    {
+        if (path == null || path.Count == 0) return;
+
+        if (path == null || path.Count == 0) return;
+
+        // Check if the final state is a 'Success' state.
+        // For now, Success is defined as landing on a matching Grape.
+        Vector2Int lastPos = path[path.Count - 1];
+        Tile lastTile = tileManager.GetTileAt(lastPos.x, lastPos.y);
+        BaseObject lastObj = lastTile.GetTopmostObject();
+
+        // Check if the final state is a 'Success' state.
+        // For now, Success is defined as landing on a matching Grape.
+        if (lastObj is Grape g && IsColorMatch(g))
+        {
+             // Confirm eating logic
+             foreach(var pos in path)
+             {
+                 Tile t = tileManager.GetTileAt(pos.x, pos.y);
+                 BaseObject o = t.GetTopmostObject();
+                 if (o is Grape grape && IsColorMatch(grape))
+                 {
+                     t.RemoveTopmostObject();
+                 }
+             }
+             this.gameObject.SetActive(false);
+             Debug.Log("Frog fed and deactivated.");
+        }
+        else
+        {
+             Debug.Log("Tongue retracted empty-handed.");
         }
     }
 
@@ -60,43 +115,56 @@ public class Frog : DirectionObject
         Vector2Int currentPosition = new Vector2Int(cell.gridX, cell.gridY);
         Direction currentDirection = facingDirection;
 
-        while (true)
-        {
-            currentPosition += DirectionToVector(currentDirection);
+        int maxSteps = 100;
+        int steps = 0;
 
-            if (tileManager == null)
-                tileManager = SingletonManager.GetSingleton<TileManager>();
-            
-            Tile nextTile = tileManager.GetTileAt(currentPosition.x, currentPosition.y);
-            if (nextTile == null)
-            {
-                Debug.Log("Reached a boundary or non-existent tile.");
-                break;
-            }
-            
+        if (tileManager == null) 
+            tileManager = SingletonManager.GetSingleton<TileManager>();
+
+        while (steps < maxSteps)
+        {
+            steps++;
+            Vector2Int nextPos = currentPosition + DirectionToVector(currentDirection);
+            Tile nextTile = tileManager.GetTileAt(nextPos.x, nextPos.y);
+
+            if (nextTile == null) break; // Boundary
+
+            currentPosition = nextPos;
+            path.Add(currentPosition);
+
             BaseObject topmostObject = nextTile.GetTopmostObject();
-            // If its a grape of the same colour.
-            if (topmostObject is Grape grape && IsColorMatch(grape))
+            if (topmostObject == null) continue; // Empty cell
+
+            // Polymorphic Interaction
+            ITongueInteractable interactable = topmostObject as ITongueInteractable;
+            if (interactable != null)
             {
-                Debug.Log($"Adding position {currentPosition} with matching grape to path.");
-                path.Add(currentPosition);
-            }
-            // If its an arrow with the same colour and it needs to continue on a different path.
-            else if (topmostObject is Arrow arrow && arrow.GetColorSet() == this.colorSet)
-            {
-                Debug.Log($"Direction change to {arrow.facingDirection} due to arrow at position {currentPosition}");
-                currentDirection = arrow.facingDirection;
-                path.Add(currentPosition); 
-                continue; 
+                TongueInteractionResult result = interactable.OnTongueEncounter(this, ref currentDirection);
+                
+                if (result == TongueInteractionResult.Stop)
+                {
+                    Debug.Log($"Blocked by {topmostObject.name}");
+                    break;
+                }
+                else if (result == TongueInteractionResult.Turn)
+                {
+                    Debug.Log($"Turned by {topmostObject.name}");
+                    // Direction updated by ref
+                }
+                else if (result == TongueInteractionResult.EatAndContinue)
+                {
+                    Debug.Log($"Passed matching {topmostObject.name}");
+                    // Continue loop
+                }
+                // If we defined EatAndStop, we would handle it here.
             }
             else
             {
-                Debug.Log($"No matching grape or color mismatch at position {currentPosition}");
+                // Non-interactable object (should be Stop by default logic or BaseObject implementation)
+                Debug.Log($"Blocked by unknown {topmostObject.name}");
                 break;
             }
         }
-
-        Debug.Log($"Path calculation complete. Path length: {path.Count}");
         return path;
     }
 }

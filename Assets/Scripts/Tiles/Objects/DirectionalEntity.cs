@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Abstract class representing an object that can be placed on a tile and has a direction.
 /// </summary>
-public abstract class DirectionObject : DynamicObject, IDirectionObject
+public abstract class DirectionalEntity : GridEntity, IDirectionalEntity
 {
     public Direction facingDirection;
 

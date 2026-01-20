@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public interface IDynamicObject
+public interface IGridEntity
 {
     /// <summary>
     /// Sets the cell renderer for the object.

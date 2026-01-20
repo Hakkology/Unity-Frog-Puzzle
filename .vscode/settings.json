@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Frogger.sln"
+    "dotnet.defaultSolution": "Unity-Frog-Puzzle.slnx"
 }

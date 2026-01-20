@@ -4,26 +4,16 @@ using DG.Tweening;
 /// <summary>
 /// Represents an arrow on a tile.
 /// </summary>
-public class Arrow : DirectionObject
+public class Arrow : DirectionalEntity
 {
-    protected override void Awake() 
+    public override TongueInteractionResult OnTongueEncounter(Frog frog, ref Direction currentDir)
     {
-        base.Awake();
-        textureRenderer = GetComponentInChildren<Renderer>();
-    }
-
-    private void Start() 
-    {
-        var textures = textureManager.GetRandomArrowTexture();
-        HandleTextureChange(textures.cellTexture, textures.cellTexture, textures.color);
-    }
-    public override void Interact()
-    {
-        
-    }
-
-    public ColorSet GetColorSet()
-    {
-        return this.colorSet;
+        // Use public getter for frog's color
+        if (this.GetColorSet() == frog.GetColorSet())
+        {
+            currentDir = this.facingDirection;
+            return TongueInteractionResult.Turn;
+        }
+        return TongueInteractionResult.Stop;
     }
 }

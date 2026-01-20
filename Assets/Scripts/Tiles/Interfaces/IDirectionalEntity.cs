@@ -2,7 +2,7 @@
 /// <summary>
 /// If an object has a direction property.
 /// </summary>
-interface IDirectionObject : IBaseObject
+interface IDirectionalEntity : IBaseObject
 {
     
     /// <summary>

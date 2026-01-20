@@ -1,117 +1,130 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Collections;
 using DG.Tweening;
+using System;
 
+/// <summary>
+/// Controls the visual representation and animation of the Frog's tongue.
+/// </summary>
 public class TongueController : MonoBehaviour
 {
     public Transform tongueRoot;
-    private LineRenderer lineRenderer;
-    public float extendSpeed = 3f;
-    public float retractSpeed = 3f;
+    public LineRenderer lineRenderer;
+    public float speed = 10f; // Speed of tongue movement
     public Material tongueMaterial;
 
-    public delegate void TongueAction();
-    public event TongueAction OnTongueExtended;
-    public event TongueAction OnTongueRetracted;
+    public event Action OnTongueRetracted;
 
-    void Awake()
+    private void Awake()
     {
-        lineRenderer = GetComponent<LineRenderer>();
-        if (!lineRenderer)
+        if (lineRenderer == null)
+            lineRenderer = GetComponent<LineRenderer>();
+        
+        if (lineRenderer == null)
             lineRenderer = gameObject.AddComponent<LineRenderer>();
-        InitializeLineRenderer();
-    }
-
-    private void InitializeLineRenderer()
-    {
+            
         lineRenderer.startWidth = 0.2f;
-        lineRenderer.endWidth = 0.1f;
-        lineRenderer.material = tongueMaterial;
+        lineRenderer.endWidth = 0.2f;
+        lineRenderer.useWorldSpace = true;
+        
+        if (tongueMaterial != null)
+            lineRenderer.material = tongueMaterial;
+            
+        // Initial state
+        lineRenderer.positionCount = 1;
+        lineRenderer.SetPosition(0, tongueRoot.position);
     }
 
-    public void StartExtendTongue(List<Vector2Int> pathPoints)
+    public void StartExtendTongue(List<Vector2Int> pathGridPoints)
     {
-        StartCoroutine(ExtendTongueRoutine(pathPoints));
+        StartCoroutine(TongueLookingRoutine(pathGridPoints));
     }
 
-    private IEnumerator ExtendTongueRoutine(List<Vector2Int> pathPoints)
+    private IEnumerator TongueLookingRoutine(List<Vector2Int> pathGridPoints)
     {
-        List<Vector3> worldPoints = new List<Vector3>() { tongueRoot.position };
-        foreach (Vector2Int point in pathPoints)
-        {
-            Tile tile = SingletonManager.GetSingleton<TileManager>().GetTileAt(point.x, point.y);
-            if (tile != null)
-                worldPoints.Add(new Vector3(tile.transform.position.x, tongueRoot.position.y, tile.transform.position.z));
-        }
+        // 1. Convert Grid Points to World Points
+        List<Vector3> worldPoints = new List<Vector3>();
+        worldPoints.Add(tongueRoot.position);
 
-        lineRenderer.positionCount = worldPoints.Count;
-        lineRenderer.SetPositions(worldPoints.ToArray());
-
-        OnTongueExtended?.Invoke();
-        yield return new WaitForSeconds(1);
-
-        StartCoroutine(RetractTongueRoutine(worldPoints, pathPoints));
-    }
-
-    private IEnumerator RetractTongueRoutine(List<Vector3> worldPoints, List<Vector2Int> pathPoints)
-    {
         TileManager tileManager = SingletonManager.GetSingleton<TileManager>();
-        int pointCount = worldPoints.Count;
-        List<GameObject> collectedGrapes = new List<GameObject>();
-
-        float retractDuration = Vector3.Distance(worldPoints[pointCount - 1], tongueRoot.position) / retractSpeed;
-        float timeElapsed = 0;
-
-        while (timeElapsed < retractDuration)
+        foreach (var p in pathGridPoints)
         {
-            float t = timeElapsed / retractDuration;
-            for (int i = 0; i < pointCount; i++)
+            Tile t = tileManager.GetTileAt(p.x, p.y);
+            if (t != null)
             {
-                Vector3 position = Vector3.Lerp(worldPoints[i], tongueRoot.position, t);
-                lineRenderer.SetPosition(i, position);
-
-                if (i > 0) // Check to collect grapes only after the first point
-                {
-                    Vector2Int gridPos = pathPoints[i-1];
-                    Tile tile = tileManager.GetTileAt(gridPos.x, gridPos.y);
-                    if (tile != null)
-                    {
-                        List<BaseObject> objectsToRemove = new List<BaseObject>();
-                        foreach (BaseObject obj in tile.ObjectsOnTile)
-                        {
-                            if (obj is Grape grape && !collectedGrapes.Contains(grape.gameObject))
-                            {
-                                collectedGrapes.Add(grape.gameObject); // Add grape to collected list.
-                                grape.transform.DOMove(tongueRoot.position, retractDuration * (1-t)).SetEase(Ease.Linear).OnComplete(() =>
-                                {
-                                    // Check if the object still exists before trying to access it.
-                                    if (grape != null)
-                                    {
-                                        objectsToRemove.Add(grape);
-                                    }
-                                });
-                            }
-                        }
-                        foreach (var obj in objectsToRemove)
-                        {
-                            tile.ObjectsOnTile.Remove(obj);
-                            Destroy(obj.gameObject);
-                        }
-                    }
-                }
+                // Maintain tongue height same as root
+                Vector3 targetPos = t.transform.position;
+                targetPos.y = tongueRoot.position.y;
+                worldPoints.Add(targetPos);
             }
-            timeElapsed += Time.deltaTime;
-            yield return null;
         }
 
-        // Reset all line positions to the start
-        for (int i = 0; i < pointCount; i++)
+        // 2. Animate Extension
+        // We extend point by point.
+        lineRenderer.positionCount = 1;
+        lineRenderer.SetPosition(0, tongueRoot.position);
+
+        for (int i = 1; i < worldPoints.Count; i++)
         {
-            lineRenderer.SetPosition(i, tongueRoot.position);
+            Vector3 startPos = worldPoints[i - 1];
+            Vector3 endPos = worldPoints[i];
+            float dist = Vector3.Distance(startPos, endPos);
+            float duration = dist / speed;
+
+            lineRenderer.positionCount = i + 1;
+            lineRenderer.SetPosition(i, startPos); // Start at previous point
+
+            // Tween the last point position
+            float t = 0;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / duration;
+                Vector3 currentPos = Vector3.Lerp(startPos, endPos, t);
+                lineRenderer.SetPosition(i, currentPos);
+                yield return null;
+            }
+            lineRenderer.SetPosition(i, endPos);
         }
+        
+        // Slight pause at full extension?
+        yield return new WaitForSeconds(0.1f);
+
+        // 3. Animate Retraction (Bringing berries back)
+        // For visual simplicity, we just retract the line point by point from end to start.
+        // The Frog.cs handles the logic of "removing" items, but visually we might want to see them slide.
+        // For this prototype, let's just retract the tongue. Items disappearing is handled by Frog logic 
+        // immediately or we can trigger callbacks here.
+        
+        // Actually, if we want to "drag" items, we would need to pass that info. 
+        // But Frog.cs calls HandleEating AFTER retraction in the previous code. 
+        // Ideally, we move the item WITH the tongue tip.
+        
+        // Retraction:
+        for (int i = worldPoints.Count - 1; i > 0; i--)
+        {
+            Vector3 startPos = worldPoints[i];
+            Vector3 endPos = worldPoints[i - 1]; // Move back to previous knot
+            float dist = Vector3.Distance(startPos, endPos);
+            float duration = dist / speed;
+
+            float t = 0;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / duration;
+                Vector3 currentPos = Vector3.Lerp(startPos, endPos, t);
+                lineRenderer.SetPosition(i, currentPos);
+                yield return null;
+            }
+            
+            // Pop the point
+            lineRenderer.positionCount = i;
+        }
+        
+        // Fully retracted
+        lineRenderer.positionCount = 1;
+        lineRenderer.SetPosition(0, tongueRoot.position);
 
         OnTongueRetracted?.Invoke();
     }
-
 }

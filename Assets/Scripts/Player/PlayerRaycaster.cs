@@ -1,6 +1,9 @@
 using UnityEngine;
 
-public class Raycaster : MonoBehaviour
+/// <summary>
+/// Handles player input via raycasting to interact with grid objects.
+/// </summary>
+public class PlayerRaycaster : MonoBehaviour
 {
     Camera cam;
 

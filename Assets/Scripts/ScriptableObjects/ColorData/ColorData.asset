@@ -12,4 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2425bd77611ef1b9b95098dd21570574, type: 3}
   m_Name: ColorData
   m_EditorClassIdentifier: 
-  colors: []
+  cellTextures:
+  - {fileID: 2800000, guid: 9af1d24bee3d2564d9e86937c73f01c9, type: 3}
+  - {fileID: 2800000, guid: 0fb69fa45b8a2c64dad86a8c6c2757a4, type: 3}
+  - {fileID: 2800000, guid: 54f41290c7269b545a3f798f61f6e0fc, type: 3}
+  - {fileID: 2800000, guid: 96c357caf300912469a4c2e1464b00fc, type: 3}
+  - {fileID: 2800000, guid: f740313827a83b640818e126c6ed37db, type: 3}

@@ -21,18 +21,23 @@ public class Tile : BaseObject, ITileObject
     }
     public override void Interact()
     {
-        
+        // Propagate interaction to the topmost object (e.g., Frog)
+        var topObj = GetTopmostObject();
+        if (topObj != null)
+        {
+            topObj.Interact();
+        }
     }
     public void AddTileObject(BaseObject tileObject)
     {
         ObjectsOnTile.Add(tileObject);
         tileObject.transform.SetParent(this.transform);
 
-        if (tileObject is DynamicObject dynamicObject)
-            dynamicObject.SetCell(this);
+        if (tileObject is GridEntity gridEntity)
+            gridEntity.SetCell(this);
         
-        if (tileObject is DirectionObject directionObject)
-            directionObject.Init();
+        if (tileObject is DirectionalEntity directionalEntity)
+            directionalEntity.Init();
         
     }
     public BaseObject GetTopmostObject()
